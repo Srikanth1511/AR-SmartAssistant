@@ -1,2 +1,7 @@
 # AR-SmartAssistant
-create a smart assitant that can help you while shoping, or cooking or even plan your day
+creating a smart assitant that can help you aong side your memory: https://faculty.cc.gatech.edu/~thad/p/032_40_agents&ubicomp/remembrance-agent.html 
+
+Using a AR galss with a phone/computer companion would be the ideal case. First lets get it set up to be run with powerful computer a home. For context there are multiple parameters to track in this case we should start with mic, camera capture, location, conversation awareness. 
+Set up: https://github.com/Srikanth1511/GlassPhoneLink-AV-Server/tree/claude/feature-update-01HXtzZX1s1PfZyjaTSJFrVS use this as the base repo for set up since this has a working connection between phone and glass for the audio and video feed. Stream the galss and camera feed form EE2 to computer over wifi. 
+
+Need to add location capture, send to local LLM for processing text and data base stuff to keep an annotated set of information from user, each information shoul hae a associated embeding like the speaker identification. the speaker identifacation run first time (vosk model for speaker identifiction)  - this is importanta to identify the user speeach and only identify and associate theh text context of teh peprson, integrate with a notes or remebering a spesific conversation, or while cooking he camera understads the sugar is getting low add it shooping list. or when having a conversation with another person if this is the first time it adds the peron to the databases, and nxt time it brings it up and also relavent information. A transformer based data base would better. But what are the different tags, metric an triggere worsds to be added to data base needs to be extensive enought to be built. 
