@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR-SmartAssistant Debug UI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AR-SmartAssistant Debug UI</h1>
+            <div class="status-bar">
+                <span id="status-indicator" class="status-idle">Idle</span>
+                <span id="session-id"></span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Session Control Panel -->
+            <section class="panel">
+                <h2>Session Control</h2>
+
+                <div class="audio-source-toggle">
+                    <label>Audio Source:</label>
+                    <select id="audio-source-select">
+                        <option value="microphone">PC Microphone</option>
+                        <option value="phone">Phone/Glass WebSocket</option>
+                    </select>
+                    <span class="help-text">Choose between local microphone or Glass/phone streaming</span>
+                </div>
+
+                <div class="controls">
+                    <button id="start-btn" class="btn btn-start">Start Session</button>
+                    <button id="stop-btn" class="btn btn-stop" disabled>Stop Session</button>
+                </div>
+
+                <div id="device-info" class="info-box"></div>
+            </section>
+
+            <!-- Live Metrics -->
+            <section class="panel">
+                <h2>Live Metrics <span class="refresh-rate">(updated every second)</span></h2>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">ASR Confidence</div>
+                        <div class="metric-value" id="metric-asr">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Speaker Confidence</div>
+                        <div class="metric-value" id="metric-speaker">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Queue Depth</div>
+                        <div class="metric-value" id="metric-queue">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">LLM Latency (ms)</div>
+                        <div class="metric-value" id="metric-llm">--</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Live Transcript Stream -->
+            <section class="panel">
+                <h2>Live Transcript Stream
+                    <span class="color-legend">
+                        <span class="legend-item memory">Memory</span>
+                        <span class="legend-item shopping">Shopping</span>
+                        <span class="legend-item todo">Todo</span>
+                        <span class="legend-item ignore">Ignore</span>
+                        <span class="legend-item smalltalk">Small Talk</span>
+                    </span>
+                </h2>
+                <div id="transcript-stream" class="transcript-container">
+                    <p class="empty-message">No active session. Start a session to see live transcripts.</p>
+                </div>
+            </section>
+
+            <!-- Session List & Memory Review -->
+            <section class="panel">
+                <h2>Recent Sessions</h2>
+                <div class="sessions-controls">
+                    <button id="refresh-sessions-btn" class="btn btn-secondary">Refresh</button>
+                </div>
+                <div id="sessions-list" class="sessions-container"></div>
+            </section>
+
+            <!-- Memory Review Panel (shown when session selected) -->
+            <div id="memory-review-panel" class="panel hidden">
+                <h2>Memory Review - Session <span id="review-session-id"></span></h2>
+                <div id="memories-list" class="memories-container"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

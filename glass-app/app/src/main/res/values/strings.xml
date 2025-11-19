@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AR SmartAssistant</string>
+
+    <!-- Main Screen -->
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="start_session">Start Session</string>
+    <string name="stop_session">Stop Session</string>
+    <string name="settings">Settings</string>
+
+    <!-- Status Messages -->
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_connecting">Connecting...</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_recording">Recording</string>
+    <string name="status_idle">Idle</string>
+
+    <!-- Settings -->
+    <string name="server_address">Server Address</string>
+    <string name="server_address_hint">e.g., 192.168.1.100</string>
+    <string name="server_port">Server Port</string>
+    <string name="server_port_hint">8765</string>
+    <string name="auto_connect">Auto-connect on startup</string>
+    <string name="auto_start_session">Auto-start session when connected</string>
+    <string name="enable_preprocessing">Enable audio preprocessing</string>
+    <string name="sample_rate">Sample Rate</string>
+    <string name="buffer_size">Buffer Size</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Audio Recording</string>
+    <string name="notification_channel_description">Shows when audio is being recorded</string>
+    <string name="notification_title">AR SmartAssistant</string>
+    <string name="notification_text_recording">Recording audio...</string>
+    <string name="notification_text_connected">Connected to server</string>
+
+    <!-- Errors -->
+    <string name="error_mic_permission">Microphone permission required</string>
+    <string name="error_connection_failed">Connection failed</string>
+    <string name="error_server_address">Invalid server address</string>
+    <string name="error_audio_init">Failed to initialize audio</string>
+
+    <!-- Info -->
+    <string name="battery_level">Battery: %d%%</string>
+    <string name="connection_quality">Signal: %s</string>
+
+</resources>

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:padding="16dp"
+    tools:context=".MainActivity">
+
+    <!-- Status Indicator -->
+    <View
+        android:id="@+id/statusIndicator"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:background="@drawable/status_indicator"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Status Text -->
+    <TextView
+        android:id="@+id/statusText"
+        style="@style/GlassStatusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:text="@string/status_disconnected"
+        app:layout_constraintBottom_toBottomOf="@id/statusIndicator"
+        app:layout_constraintStart_toEndOf="@id/statusIndicator"
+        app:layout_constraintTop_toTopOf="@id/statusIndicator" />
+
+    <!-- Settings Button -->
+    <ImageButton
+        android:id="@+id/settingsButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/settings"
+        android:src="@android:drawable/ic_menu_preferences"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Server Address Display -->
+    <TextView
+        android:id="@+id/serverAddressText"
+        style="@style/GlassText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="Server: Not Set"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/statusText" />
+
+    <!-- Battery Level -->
+    <TextView
+        android:id="@+id/batteryText"
+        style="@style/GlassStatusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Battery: --"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/serverAddressText" />
+
+    <!-- Control Buttons Container -->
+    <LinearLayout
+        android:id="@+id/buttonContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/batteryText">
+
+        <!-- Connect Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/connectButton"
+            style="@style/GlassButton"
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/connect"
+            app:cornerRadius="8dp"
+            app:icon="@android:drawable/ic_menu_upload"
+            app:iconGravity="start" />
+
+        <!-- Start Session Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/startSessionButton"
+            style="@style/GlassButton"
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:text="@string/start_session"
+            app:cornerRadius="8dp"
+            app:icon="@android:drawable/ic_btn_speak_now"
+            app:iconGravity="start" />
+
+    </LinearLayout>
+
+    <!-- Info Text -->
+    <TextView
+        android:id="@+id/infoText"
+        style="@style/GlassStatusText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="Configure server in Settings"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonContainer" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

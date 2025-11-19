@@ -403,6 +403,79 @@ class BrainDatabase:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def list_sessions(self, limit: int = 50) -> list[Dict[str, Any]]:
+        """List recent sessions ordered by start time (most recent first)."""
+        with sqlite3.connect(self.brain_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT s.*, mv.version_tag, mv.llm_model, mv.asr_model
+                FROM sessions s
+                JOIN model_versions mv ON s.model_version_id = mv.id
+                ORDER BY s.start_time DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_session(self, session_id: int) -> Dict[str, Any] | None:
+        """Get a single session by ID with model version details."""
+        with sqlite3.connect(self.brain_path) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                """
+                SELECT s.*, mv.version_tag, mv.llm_model, mv.asr_model, mv.speaker_model
+                FROM sessions s
+                JOIN model_versions mv ON s.model_version_id = mv.id
+                WHERE s.id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def get_raw_events(self, session_id: int) -> list[Dict[str, Any]]:
+        """Get all raw events for a session (alias for get_session_events)."""
+        return self.get_session_events(session_id)
+
+    def get_memories(self, session_id: int) -> list[Dict[str, Any]]:
+        """Get all memory items for a session (alias for list_memory_items)."""
+        return self.list_memory_items(session_id)
+
+    def update_memory_approval(
+        self,
+        memory_id: int,
+        approval_status: str,
+        reason: str | None = None,
+    ) -> None:
+        """Update memory approval status with optional reason (wrapper for update_memory_status)."""
+        self.update_memory_status(memory_id, approval_status, reason)
+
+    def get_recent_metrics(self, window_sec: int = 60) -> list[Dict[str, Any]]:
+        """Get system metrics from the last N seconds."""
+        with sqlite3.connect(self.metrics_path) as conn:
+            conn.row_factory = sqlite3.Row
+            # Calculate timestamp threshold (SQLite datetime arithmetic)
+            rows = conn.execute(
+                """
+                SELECT * FROM system_metrics
+                WHERE datetime(timestamp) >= datetime('now', '-' || ? || ' seconds')
+                ORDER BY timestamp DESC
+                """,
+                (window_sec,),
+            ).fetchall()
+        metrics: list[Dict[str, Any]] = []
+        for row in rows:
+            metric_dict = dict(row)
+            # Parse JSON metadata if present
+            if metric_dict.get("metadata"):
+                try:
+                    metric_dict["metadata"] = json.loads(metric_dict["metadata"])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            metrics.append(metric_dict)
+        return metrics
+
 
 def utcnow() -> str:
     return datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
