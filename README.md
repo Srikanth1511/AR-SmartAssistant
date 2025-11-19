@@ -18,10 +18,6 @@ debug UI for collecting, tagging, and approving memories.
 
 ## Background
 
-Set up the Glass-to-phone-to-PC pipeline using the reference implementation:
-<https://github.com/Srikanth1511/GlassPhoneLink-AV-Server/tree/claude/feature-update-01HXtzZX1s1PfZyjaTSJFrVS>.
-It provides a working audio/video link between the phone and the AR glasses.
-
 Once the pipeline is in place, follow the requirements documentation to
 implement manual audio sessions, persistent raw events, memory classification,
 per-memory approvals, and versioned replays.
