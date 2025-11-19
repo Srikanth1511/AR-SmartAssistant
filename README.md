@@ -1,7 +1,25 @@
 # AR-SmartAssistant
-creating a smart assitant that can help you aong side your memory: https://faculty.cc.gatech.edu/~thad/p/032_40_agents&ubicomp/remembrance-agent.html 
 
-Using a AR galss with a phone/computer companion would be the ideal case. First lets get it set up to be run with powerful computer a home. For context there are multiple parameters to track in this case we should start with mic, camera capture, location, conversation awareness. 
-Set up: https://github.com/Srikanth1511/GlassPhoneLink-AV-Server/tree/claude/feature-update-01HXtzZX1s1PfZyjaTSJFrVS use this as the base repo for set up since this has a working connection between phone and glass for the audio and video feed. Stream the galss and camera feed form EE2 to computer over wifi. 
+Audio-first remembrance agent inspired by the classic Remembrance Agent concept.
+The current focus is a manual-session, audio-only proof of concept that runs all
+inference locally (ASR, speaker ID, LLM, embeddings) and exposes a developer
+debug UI for collecting, tagging, and approving memories.
 
-Need to add location capture, send to local LLM for processing text and data base stuff to keep an annotated set of information from user, each information shoul hae a associated embeding like the speaker identification. the speaker identifacation run first time (vosk model for speaker identifiction)  - this is importanta to identify the user speeach and only identify and associate theh text context of teh peprson, integrate with a notes or remebering a spesific conversation, or while cooking he camera understads the sugar is getting low add it shooping list. or when having a conversation with another person if this is the first time it adds the peron to the databases, and nxt time it brings it up and also relavent information. A transformer based data base would better. But what are the different tags, metric an triggere worsds to be added to data base needs to be extensive enought to be built. 
+## Getting Started
+
+1. Review [`CONTRIBUTIONS.md`](CONTRIBUTIONS.md) to understand the repository
+   layout and documentation rules.
+2. Read the documentation index in [`docs/README.md`](docs/README.md).
+3. Dive into the audio-only POC requirements inside
+   [`docs/poc-audio-only/`](docs/poc-audio-only/), starting with
+   [`requirements.md`](docs/poc-audio-only/requirements.md).
+
+## Background
+
+Set up the Glass-to-phone-to-PC pipeline using the reference implementation:
+<https://github.com/Srikanth1511/GlassPhoneLink-AV-Server/tree/claude/feature-update-01HXtzZX1s1PfZyjaTSJFrVS>.
+It provides a working audio/video link between the phone and the AR glasses.
+
+Once the pipeline is in place, follow the requirements documentation to
+implement manual audio sessions, persistent raw events, memory classification,
+per-memory approvals, and versioned replays.
