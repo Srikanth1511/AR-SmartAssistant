@@ -1,0 +1,420 @@
+================================================================================
+COMPLETE AUDIO DATA FLOW THROUGH AR-SMARTASSISTANT
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                GLASS APP                                    │
+│                         (Android Smart Glass)                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   ┌──────────────────────────────────────────────────────────────────────┐  │
+│   │ 1. MICROPHONE CAPTURE                                                │  │
+│   │    MediaRecorder.AudioSource.VOICE_RECOGNITION                       │  │
+│   │    ↓ Type: PCM 16-bit signed integers                                │  │
+│   │    ↓ Sample Rate: 16000 Hz                                           │  │
+│   │    ↓ Channels: MONO                                                  │  │
+│   │    ↓ Range: -32768 to +32767                                         │  │
+│   └──────────────────────────────────────────────────────────────────────┘  │
+│                            ↓                                                 │
+│   ┌──────────────────────────────────────────────────────────────────────┐  │
+│   │ 2. AUDIO PREPROCESSING (Android Effects)                            │  │
+│   │    ✓ NoiseSuppressor.create()                                        │  │
+│   │    ✓ AutomaticGainControl.create()                                  │  │
+│   │    ✓ AcousticEchoCanceler.create()                                  │  │
+│   │    ↓ Still Type: PCM 16-bit signed integers                          │  │
+│   │    ↓ Sample Rate: 16000 Hz (unchanged)                               │  │
+│   │    ↓ Byte Order: Little-endian (Android standard)                    │  │
+│   └──────────────────────────────────────────────────────────────────────┘  │
+│                            ↓                                                 │
+│   ┌──────────────────────────────────────────────────────────────────────┐  │
+│   │ 3. BUFFER COLLECTION (AudioRecord.read)                             │  │
+│   │    ↓ Type: ByteArray (raw bytes)                                    │  │
+│   │    ↓ Size: 3200 bytes (config.bufferSizeBytes)                       │  │
+│   │    ↓ Duration: 100ms (3200 / (16000 * 2))                            │  │
+│   │    ↓ Sample Count: 1600 samples                                      │  │
+│   │    ↓ Format: [0xAA, 0xBB, 0xCC, 0xDD, ...]                           │  │
+│   │           → [0xBBAA, 0xDDCC, ...] (16-bit pairs)                     │  │
+│   └──────────────────────────────────────────────────────────────────────┘  │
+│                            ↓                                                 │
+│   ┌──────────────────────────────────────────────────────────────────────┐  │
+│   │ 4. WEBSOCKET TRANSMISSION                                            │  │
+│   │    ⚠️  ISSUE 1.1: AudioConfig.kt syntax error (line 11)              │  │
+│   │        Field name: "enableNoiseSuppress or: Boolean"                 │  │
+│   │        ❌ INVALID KOTLIN SYNTAX - Won't compile!                     │  │
+│   │                                                                        │  │
+│   │    AudioWebSocketClient.sendAudioData(audioData: ByteArray)          │  │
+│   │    ↓ Type: Binary WebSocket frame                                    │  │
+│   │    ↓ Size: Variable (bytesRead from audio record)                    │  │
+│   │    ↓ Encoding: None - raw PCM bytes sent as-is                       │  │
+│   │    ↓ Metadata: NONE - No framing, no timestamp, no encoding info    │  │
+│   │    ↓ Destination: ws://PC:8765 (config.websocket.host:port)          │  │
+│   └──────────────────────────────────────────────────────────────────────┘  │
+│                            ↓                                                 │
+└────────────────────────────┼─────────────────────────────────────────────────┘
+                             │
+                    ╔════════╩════════╗
+                    │                 │
+        ┌───────────▼──────────┐   ┌──▼─────────────────────────┐
+        │  WEBSOCKET SERVER    │   │   PC MICROPHONE INPUT      │
+        │  (MISSING! ❌)       │   │   (FALLBACK OPTION) ✓      │
+        └──────────────────────┘   └────────────────────────────┘
+                    │                       │
+                    │                       │
+        ╔═══════════▼═══════════╗  ╔════════▼════════════════════╗
+        │                       │  │                             │
+        │  NO WEBSOCKET SERVER  │  │  SOUNDDEVICE STREAM         │
+        │  NO PCM→FLOAT         │  │  (numpy.sounddevice)        │
+        │  AUDIO IS LOST ❌      │  │                             │
+        │                       │  │  ↓ Type: np.ndarray         │
+        │                       │  │  ↓ dtype: float32           │
+        │                       │  │  ↓ Range: [-1.0, 1.0]       │
+        │                       │  │  ↓ Already normalized ✓     │
+        │                       │  │  ↓ Shape: (1600,)           │
+        │                       │  │  ↓ Sample Rate: 16000 Hz    │
+        │                       │  │                             │
+        │                       │  │  chunk_size = 3200 // 2     │
+        │                       │  │            = 1600 samples   │
+        │                       │  │  Duration = 100ms ✓         │
+        │                       │  └────────────┬────────────────┘
+        │                       │               │
+        │                       │    ┌──────────▼────────────┐
+        │                       │    │ _audio_callback()     │
+        │                       │    │                       │
+        │                       │    │ samples = indata[:,0] │
+        │                       │    │ .tolist()  [lossy]    │
+        │                       │    │                       │
+        │                       │    │ ↓ Type: list[float]   │
+        │                       │    │ ↓ Length: 1600        │
+        │                       │    │ ↓ Timestamp: time() ⚠️ │
+        │                       │    └──────────┬────────────┘
+        │                       │               │
+        │                       │    ┌──────────▼────────────────┐
+        │                       │    │  audio_queue.put()        │
+        │                       │    │  (UNBOUNDED - leak risk) ⚠│
+        │                       │    └──────────┬────────────────┘
+        │                       │               │
+        └───────────────────────┴───────────────┼──────────────────────────────┐
+                                                │                              │
+                                    ┌───────────▼──────────────────────────┐   │
+                                    │  AUDIO FRAME CREATION                │   │
+                                    │                                      │   │
+                                    │  AudioFrame(                         │   │
+                                    │    timestamp = float                 │   │
+                                    │    samples = list[float] (1600)      │   │
+                                    │  )                                   │   │
+                                    │                                      │   │
+                                    │  ⚠️  Missing metadata:               │   │
+                                    │      - sample_rate                   │   │
+                                    │      - encoding                      │   │
+                                    │      - channels                      │   │
+                                    │      - duration                      │   │
+                                    │                                      │   │
+                                    └──────────┬───────────────────────────┘   │
+                                               │                              │
+                                    ┌──────────▼──────────────────────────┐   │
+                                    │ AUDIO PIPELINE (session_runner)     │   │
+                                    │                                      │   │
+                                    │ process_frames(frames):              │   │
+                                    │   for frame in frames:               │   │
+                                    │     segments = vad.segment(frames)  │   │
+                                    │                                      │   │
+                                    │ ❌ ISSUE 4.2: VAD ENERGY BROKEN      │   │
+                                    │    def _frame_energy(samples):       │   │
+                                    │      return 20.0 * fmean(           │   │
+                                    │        abs(s) for s in samples)      │   │
+                                    │                                      │   │
+                                    │    Expected: 20*log10(rms) [dB]     │   │
+                                    │    Actual:   20*mean(|x|) [linear]  │   │
+                                    │    Threshold: config says -45dB     │   │
+                                    │    Problem: Comparing mismatched     │   │
+                                    │             scales!                  │   │
+                                    │                                      │   │
+                                    │ ❌ ISSUE 8.1: FRAME DURATION MISMATCH │   │
+                                    │    Config: frame_duration_ms = 30   │   │
+                                    │    Actual: 100ms (buffer size)       │   │
+                                    │    VAD Calculation (WRONG):          │   │
+                                    │    vad_frames = 300 // 30 = 10      │   │
+                                    │    Real frames needed: 300 // 100 = 3│   │
+                                    │    Actual timeout: 10*100 = 1000ms  │   │
+                                    │    (3.3x longer than intended!)     │   │
+                                    │                                      │   │
+                                    └──────────┬───────────────────────────┘   │
+                                               │                              │
+                                    ┌──────────▼──────────────────────────┐   │
+                                    │ ASR TRANSCRIPTION (MockAsrModel)   │   │
+                                    │                                      │   │
+                                    │ avg_energy = fmean(                 │   │
+                                    │   _frame_energy(...) for f in seg)  │   │
+                                    │                                      │   │
+                                    │ words = ["hmm", "note", ...]        │   │
+                                    │ idx = min(int(max(                  │   │
+                                    │   avg_energy + 60, 0) // 5),        │   │
+                                    │   len(words) - 1)                   │   │
+                                    │                                      │   │
+                                    │ ❌ ISSUE 4.3: MAGIC NUMBERS           │   │
+                                    │    Uses broken energy (+60 offset)   │   │
+                                    │    // 5 maps to word list            │   │
+                                    │    Deterministic but meaningless     │   │
+                                    │    Confidence: hardcoded 0.5         │   │
+                                    │                                      │   │
+                                    │ Output: (transcript, confidence)     │   │
+                                    │                                      │   │
+                                    └──────────┬───────────────────────────┘   │
+                                               │                              │
+                                    ┌──────────▼──────────────────────────┐   │
+                                    │ AUDIO SEGMENT STORAGE                │   │
+                                    │                                      │   │
+                                    │ _write_segment(session, index, seg): │   │
+                                    │                                      │   │
+                                    │ ❌ ISSUE 4.4: TEXT CSV FORMAT         │   │
+                                    │    for frame in segment:             │   │
+                                    │      write(                          │   │
+                                    │        ",".join(f"{s:.4f}"           │   │
+                                    │        for s in frame.samples)       │   │
+                                    │      )                               │   │
+                                    │                                      │   │
+                                    │    File: "session42_0_0.txt"         │   │
+                                    │    Content:                          │   │
+                                    │    0.1234,0.5678,0.9012,...         │   │
+                                    │    0.2345,0.6789,0.1234,...         │   │
+                                    │                                      │   │
+                                    │ Problems:                            │   │
+                                    │   - Text not binary (10x space waste)│   │
+                                    │   - .4f lossy (4 decimals)           │   │
+                                    │   - No metadata                      │   │
+                                    │   - Uncompressed                     │   │
+                                    │   - Can't reconstruct                │   │
+                                    │                                      │   │
+                                    │ Space: 200+ KB/s vs 32 KB/s (real)   │   │
+                                    │                                      │   │
+                                    └──────────┬───────────────────────────┘   │
+                                               │                              │
+                                    ┌──────────▼──────────────────────────┐   │
+                                    │ RAW EVENT STORAGE                    │   │
+                                    │                                      │   │
+                                    │ insert_raw_event(record):            │   │
+                                    │   payload_json = json.dumps({        │   │
+                                    │     "asr_confidence": 0.5,           │   │
+                                    │     "speaker_confidence": 0.55,      │   │
+                                    │     "transcript": "buy segment",     │   │
+                                    │     "audio_segment_id": 42           │   │
+                                    │   })                                 │   │
+                                    │                                      │   │
+                                    │   INSERT INTO raw_events             │   │
+                                    │     (payload) VALUES (?)              │   │
+                                    │                                      │   │
+                                    │ Type in DB: TEXT (serialized JSON)   │   │
+                                    │                                      │   │
+                                    └──────────┬───────────────────────────┘   │
+                                               │                              │
+                                    ┌──────────▼──────────────────────────┐   │
+                                    │ LLM ORCHESTRATOR (PROPOSAL)          │   │
+                                    │                                      │   │
+                                    │ propose_actions(session_id):         │   │
+                                    │   for event in get_session_events(): │   │
+                                    │                                      │   │
+                                    │ ⚠️  ISSUE 6.1: CONFIDENCE MAPPING    │   │
+                                    │    confidence =                      │   │
+                                    │      min(asr_conf, speaker_conf)     │   │
+                                    │                                      │   │
+                                    │    If ASR=0.9, Speaker=0.5:          │   │
+                                    │      Result = 0.5 (too conservative) │   │
+                                    │    Better: average or weighted       │   │
+                                    │                                      │   │
+                                    │ Output: OrchestratedAction[]         │   │
+                                    │                                      │   │
+                                    └──────────┬───────────────────────────┘   │
+                                               │                              │
+                                    ┌──────────▼──────────────────────────┐   │
+                                    │ MEMORY PERSISTENCE                  │   │
+                                    │                                      │   │
+                                    │ insert_memory_item(record):          │   │
+                                    │   INSERT INTO memory_items           │   │
+                                    │   (confidence_asr, confidence_speaker,│   │
+                                    │    confidence_llm, ...               │   │
+                                    │   )                                  │   │
+                                    │                                      │   │
+                                    │ Type in DB: REAL (float)             │   │
+                                    │                                      │   │
+                                    │ ✓ Correct type for numbers           │   │
+                                    │                                      │   │
+                                    └──────────┬───────────────────────────┘   │
+                                               │                              │
+                                    ┌──────────▼──────────────────────────┐   │
+                                    │ DATABASE RETRIEVAL (UI)              │   │
+                                    │                                      │   │
+                                    │ ❌ ISSUE 7.1: MISSING METHODS         │   │
+                                    │    app.py calls:                     │   │
+                                    │      list_sessions() ❌              │   │
+                                    │      get_session() ❌                │   │
+                                    │      get_raw_events() ❌             │   │
+                                    │      get_memories() ❌               │   │
+                                    │      update_memory_approval() ❌     │   │
+                                    │      get_recent_metrics() ❌         │   │
+                                    │                                      │   │
+                                    │    Methods that EXIST:               │   │
+                                    │      get_session_events() ✓         │   │
+                                    │      list_memory_items() ✓          │   │
+                                    │      update_memory_status() ✓       │   │
+                                    │      update_session_status() ✓      │   │
+                                    │                                      │   │
+                                    │    UI will crash with AttributeError │   │
+                                    │                                      │   │
+                                    └──────────┬───────────────────────────┘   │
+                                               │                              │
+                                    ┌──────────▼──────────────────────────┐   │
+                                    │ FLASK DEBUG UI (app.py)              │   │
+                                    │                                      │   │
+                                    │ Routes defined but broken:           │   │
+                                    │   /api/sessions ❌                   │   │
+                                    │   /api/sessions/<id> ❌              │   │
+                                    │   /api/memories/<id>/approve ❌      │   │
+                                    │   /api/metrics/live ❌               │   │
+                                    │                                      │   │
+                                    │ Result: Routes fail at runtime       │   │
+                                    │                                      │
+                                    └──────────────────────────────────────┘   │
+                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+CRITICAL ISSUES SUMMARY
+================================================================================
+
+LEVEL P0 (BLOCKING):
+  ❌ 1. AudioConfig.kt:11 - SYNTAX ERROR prevents compilation
+       "enableNoiseSuppress or: Boolean" → should be "enableNoiseSuppressor"
+
+  ❌ 2. WebSocket Server NOT IMPLEMENTED
+       No ar_smart_assistant/perception/websocket_receiver.py
+       Audio from Glass is sent to nowhere
+
+  ❌ 3. Missing PCM 16-bit to float conversion
+       Glass sends PCM bytes, no decoder exists
+       Need: sample_float = sample_int16 / 32768.0
+
+  ❌ 4. Database methods missing from BrainDatabase
+       6 methods called by UI don't exist:
+       - list_sessions()
+       - get_session()
+       - get_raw_events()
+       - get_memories()
+       - update_memory_approval()
+       - get_recent_metrics()
+
+LEVEL P1 (HIGH):
+  ❌ 5. VAD Energy Formula Broken
+       Expected: 20 * log10(rms) for dB
+       Actual: 20 * mean(|x|) for linear
+       Mismatch: threshold is -45dB, value is ~4.0 linear
+
+  ❌ 6. VAD Frame Duration Mismatch
+       Config: frame_duration_ms = 30
+       Actual: 100ms (3200 bytes / 16000 Hz / 2 bytes per sample)
+       Result: VAD timeout 3.3x longer than intended
+
+  ❌ 7. Audio Storage Format Text (CSV)
+       Should be: Binary (WAV, FLAC, etc)
+       Space waste: 200+ KB/s vs 32 KB/s real PCM
+       Lossy: .4f truncates precision
+
+  ❌ 8. AudioFrame Missing Metadata
+       Has: timestamp, samples
+       Needs: sample_rate_hz, encoding, channels, duration
+
+LEVEL P2 (MEDIUM):
+  ⚠️  9. Microphone Queue Unbounded
+       Default maxsize=0 → memory leak if consumer slow
+       queue.Full never raised
+
+  ⚠️  10. MockAsrModel Magic Numbers
+        avg_energy + 60 offset (compensating broken formula)
+        // 5 to map to word list (arbitrary)
+        Hardcoded confidence values
+
+  ⚠️  11. Timestamp Synchronization Weak
+        Microphone uses time.time() (wall clock)
+        Not synchronized with audio sample indices
+
+  ⚠️  12. Error Handling Minimal
+        Pipeline exceptions bubble up uncaught
+        No validation at handoff points
+
+
+================================================================================
+DATA TYPE FLOW TABLE
+================================================================================
+
+Component               Input Type           Processing              Output Type        Issues
+─────────────────────  ──────────────────── ─────────────────────── ────────────────── ──────────────────────
+Glass Microphone       PCM HAL              Audio Effects           PCM 16-bit         ✓
+Glass Recording        PCM 16-bit           ByteArray collect       byte[] (3200B)     ✓
+Glass WebSocket        byte[]               send(data)              Binary Frame       ❌ No metadata
+PC WebSocket Server    [NONE RECEIVED]      [MISSING]               [MISSING]          ❌ NOT IMPL
+PC Microphone          Analog signal        sounddevice stream      np.float32[]       ✓
+Microphone Callback    np.float32[]         tolist()                list[float]        ⚠️ Lossy
+AudioFrame Create      list[float]          AudioFrame()            AudioFrame         ❌ Missing meta
+VAD Segment            AudioFrame[]         _frame_energy()         float (broken)     ❌ Wrong formula
+ASR Model              AudioFrame[]         heuristic logic         (str, float)       ⚠️ Mock only
+Audio Write            AudioFrame[]         format string           CSV text           ❌ Inefficient
+Raw Event Store        dict                 json.dumps()            TEXT (JSON)        ✓
+Memory Insert          OrchestratedAction   record→columns          REAL floats        ✓
+DB Retrieve            Rows                 json.loads()            dict[str,Any]      ❌ Methods missing
+UI Display             [None yet]           [BROKEN ROUTES]         [CRASHES]          ❌ Method errors
+
+
+================================================================================
+BUFFER SIZE VERIFICATION
+================================================================================
+
+Component           Config              Actual Size      Duration        Samples       Status
+────────────────── ──────────────────── ────────────── ───────────────── ──────────── ────────
+Glass Buffer       3200 bytes           3200 bytes     100ms            1600         ✓
+Microphone Chunk   3200 // 2 = 1600     1600 samples   100ms (16kHz)    1600         ✓
+AudioFrame         [not specified]      list[1600]     [unknown]        1600         ❌ No duration
+VAD Frame Config   30ms                 100ms actual   100ms (reality)  1600         ❌ MISMATCH
+VAD Min Speech     300ms                300ms (config) Wrong calc: 1s   10 actual    ❌ 3.3x off
+Sample Rate        16000 Hz             16000 Hz       [consistent]     [consistent] ✓
+
+
+================================================================================
+FILE MODIFICATION PRIORITY
+================================================================================
+
+P0 FILES (DO FIRST - BLOCKING):
+  1. glass-app/app/src/main/java/com/arsmartassistant/glass/model/AudioConfig.kt
+     - Line 11: Fix "enableNoiseSuppress or:" → "enableNoiseSuppressor:"
+
+  2. ar_smart_assistant/perception/websocket_receiver.py [CREATE NEW]
+     - Receive binary WebSocket frames from Glass
+     - Convert PCM 16-bit bytes to float32 [-1.0, 1.0]
+     - Create AudioFrame with proper metadata
+     - Handle error cases
+
+  3. ar_smart_assistant/database/repository.py
+     - Add list_sessions(limit: int) method
+     - Add get_session(session_id: int) method
+     - Add get_raw_events(session_id: int) method
+     - Add get_memories(session_id: int) method
+     - Rename update_memory_status → update_memory_approval
+     - Add get_recent_metrics(window_sec: int) method
+
+P1 FILES (DO NEXT - HIGH PRIORITY):
+  4. ar_smart_assistant/perception/audio_pipeline.py
+     - Fix _frame_energy(): implement proper dB formula with log10
+     - Add metadata to AudioFrame dataclass
+     - Fix MockAsrModel to use real dB values
+
+  5. ar_smart_assistant/perception/microphone.py
+     - Fix queue with maxsize parameter (e.g., 10 frames)
+     - Improve timestamp synchronization
+
+  6. ar_smart_assistant/config.py
+     - Fix VAD frame_duration_ms: 30 → 100 (or change buffer logic)
+
+  7. ar_smart_assistant/ui/app.py
+     - Update to call correct BrainDatabase methods
+     - Add error handling for missing routes
+
+
