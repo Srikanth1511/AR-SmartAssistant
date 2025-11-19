@@ -5,7 +5,54 @@ The current focus is a manual-session, audio-only proof of concept that runs all
 inference locally (ASR, speaker ID, LLM, embeddings) and exposes a developer
 debug UI for collecting, tagging, and approving memories.
 
+## Quick Start
+
+Get up and running in minutes:
+
+```bash
+# 1. Run automated setup
+./setup.sh
+
+# 2. Enroll your voice
+./enroll_speaker.sh
+
+# 3. Start the debug UI
+./run_ui.sh
+```
+
+Open http://localhost:5000 in your browser and start recording sessions!
+
+**📖 For detailed installation instructions, see [`INSTALL.md`](INSTALL.md)**
+
+## Features
+
+✅ **Local-First**: All processing runs on your machine (no cloud dependencies)
+✅ **Audio Input**: PC microphone or Google Glass/phone streaming
+✅ **Real-Time Transcription**: Faster-Whisper ASR with live display
+✅ **Speaker Identification**: Know who said what
+✅ **Memory Management**: Approve/reject individual memories
+✅ **Debug UI**: Web-based interface for session control and review
+✅ **Extensible**: Modular design for easy enhancement
+
+## System Requirements
+
+- **OS**: Linux, macOS, or Windows 10/11
+- **Python**: 3.11+
+- **RAM**: 8GB minimum (16GB recommended)
+- **Storage**: 10GB free space
+- **Microphone**: Any USB or built-in microphone
+- **GPU** (optional): NVIDIA GPU with 6GB+ VRAM for faster processing
+
 ## Getting Started
+
+### For Users
+
+1. **Install**: Follow the [installation guide](INSTALL.md)
+2. **Enroll**: Create your voice profile with the enrollment tool
+3. **Record**: Start a session and speak naturally
+4. **Review**: Approve memories you want to keep
+
+### For Developers
 
 1. Read the engineering constraints in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 2. Skim the documentation index in [`docs/README.md`](docs/README.md).

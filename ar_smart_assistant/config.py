@@ -137,6 +137,7 @@ class AudioCaptureConfig:
     channel: str
     source: str
     buffer_size_bytes: int
+    device_index: int | None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "AudioCaptureConfig":
@@ -144,12 +145,16 @@ class AudioCaptureConfig:
         buffer_size = int(payload.get("buffer_size_bytes", 3_200))
         if sample_rate <= 0 or buffer_size <= 0:
             raise ValueError("sample_rate_hz and buffer_size_bytes must be positive")
+        device_idx = payload.get("device_index")
+        if device_idx is not None:
+            device_idx = int(device_idx)
         return cls(
             sample_rate_hz=sample_rate,
             encoding=str(payload.get("encoding", "PCM_16BIT")),
             channel=str(payload.get("channel", "MONO")),
             source=str(payload.get("source", "VOICE_RECOGNITION")),
             buffer_size_bytes=buffer_size,
+            device_index=device_idx,
         )
 
 
@@ -170,7 +175,112 @@ class PreprocessingToggle:
 
 
 @dataclass(frozen=True)
+class StorageConfig:
+    root: Path
+    audio_segments: Path
+    brain_main_db: Path
+    system_metrics_db: Path
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "StorageConfig":
+        root = Path(payload.get("root", "./data"))
+        databases = payload.get("databases", {})
+        return cls(
+            root=root,
+            audio_segments=Path(payload.get("audio_segments", root / "audio_segments")),
+            brain_main_db=Path(databases.get("brain_main", root / "brain_main.db")),
+            system_metrics_db=Path(databases.get("system_metrics", root / "system_metrics.db")),
+        )
+
+
+@dataclass(frozen=True)
+class WebSocketConfig:
+    enabled: bool
+    host: str
+    port: int
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "WebSocketConfig":
+        return cls(
+            enabled=bool(payload.get("enabled", False)),
+            host=str(payload.get("host", "0.0.0.0")),
+            port=int(payload.get("port", 8765)),
+        )
+
+
+@dataclass(frozen=True)
+class LLMConfig:
+    provider: str
+    model: str
+    temperature: float
+    max_tokens: int
+    base_url: str
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "LLMConfig":
+        return cls(
+            provider=str(payload.get("provider", "ollama")),
+            model=str(payload.get("model", "llama3.1:8b")),
+            temperature=float(payload.get("temperature", 0.3)),
+            max_tokens=int(payload.get("max_tokens", 1000)),
+            base_url=str(payload.get("base_url", "http://localhost:11434")),
+        )
+
+
+@dataclass(frozen=True)
+class EmbeddingsConfig:
+    provider: str
+    model: str
+    collection_name: str
+    persist_directory: Path
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "EmbeddingsConfig":
+        return cls(
+            provider=str(payload.get("provider", "chromadb")),
+            model=str(payload.get("model", "all-MiniLM-L6-v2")),
+            collection_name=str(payload.get("collection_name", "memories")),
+            persist_directory=Path(payload.get("persist_directory", "./data/chroma")),
+        )
+
+
+@dataclass(frozen=True)
+class DebugUIConfig:
+    enabled: bool
+    host: str
+    port: int
+    auto_open_browser: bool
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "DebugUIConfig":
+        return cls(
+            enabled=bool(payload.get("enabled", True)),
+            host=str(payload.get("host", "127.0.0.1")),
+            port=int(payload.get("port", 5000)),
+            auto_open_browser=bool(payload.get("auto_open_browser", True)),
+        )
+
+
+@dataclass(frozen=True)
+class LoggingConfig:
+    level: str
+    file: Path
+    max_bytes: int
+    backup_count: int
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "LoggingConfig":
+        return cls(
+            level=str(payload.get("level", "INFO")),
+            file=Path(payload.get("file", "./data/logs/app.log")),
+            max_bytes=int(payload.get("max_bytes", 10485760)),
+            backup_count=int(payload.get("backup_count", 5)),
+        )
+
+
+@dataclass(frozen=True)
 class AudioConfig:
+    input_source: str
     capture: AudioCaptureConfig
     preprocessing: PreprocessingToggle
     vad: VadConfig
@@ -181,6 +291,7 @@ class AudioConfig:
     def from_dict(cls, payload: Mapping[str, Any]) -> "AudioConfig":
         audio_payload = payload or {}
         return cls(
+            input_source=str(audio_payload.get("input_source", "microphone")),
             capture=AudioCaptureConfig.from_dict(audio_payload.get("capture", {})),
             preprocessing=PreprocessingToggle.from_dict(audio_payload.get("preprocessing", {})),
             vad=VadConfig.from_dict(audio_payload.get("vad", {})),
@@ -193,19 +304,32 @@ class AudioConfig:
 class AppConfig:
     """Top-level immutable configuration."""
 
+    storage: StorageConfig
     audio: AudioConfig
+    websocket: WebSocketConfig
+    llm: LLMConfig
+    embeddings: EmbeddingsConfig
+    debug_ui: DebugUIConfig
+    logging: LoggingConfig
+    # Legacy field for compatibility
     storage_root: Path
     session_replay_window_sec: int
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "AppConfig":
-        storage_root = Path(payload.get("storage_root", "./data"))
+        storage_config = StorageConfig.from_dict(payload.get("storage", {}))
         session_replay_window_sec = int(payload.get("session_replay_window_sec", 300))
         if session_replay_window_sec <= 0:
             raise ValueError("session_replay_window_sec must be positive")
         return cls(
+            storage=storage_config,
             audio=AudioConfig.from_dict(payload.get("audio", {})),
-            storage_root=storage_root,
+            websocket=WebSocketConfig.from_dict(payload.get("websocket", {})),
+            llm=LLMConfig.from_dict(payload.get("llm", {})),
+            embeddings=EmbeddingsConfig.from_dict(payload.get("embeddings", {})),
+            debug_ui=DebugUIConfig.from_dict(payload.get("debug_ui", {})),
+            logging=LoggingConfig.from_dict(payload.get("logging", {})),
+            storage_root=storage_config.root,
             session_replay_window_sec=session_replay_window_sec,
         )
 
@@ -328,9 +452,15 @@ __all__ = [
     "AudioConfig",
     "AudioCaptureConfig",
     "AsrConfig",
+    "DebugUIConfig",
+    "EmbeddingsConfig",
+    "LLMConfig",
+    "LoggingConfig",
     "PreprocessingToggle",
     "SpeakerIdConfig",
+    "StorageConfig",
     "VadConfig",
+    "WebSocketConfig",
     "DEFAULT_CONFIG",
     "load_config",
 ]
