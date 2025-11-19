@@ -231,7 +231,8 @@ Two physical DB files, for sanity and separation:
   - config_change_log
   - speaker_profiles
   - persons
-  - semantic_locations
+  - locations
+  - conversations
   - memory_items
   - shopping_items
   - supervised_learning_events
@@ -366,17 +367,20 @@ Fields:
 - `display_name`
 - `primary_speaker_profile_id` (FK → speaker_profiles)
 - `primary_face_profile_id` (NULL for now; future FK when vision added)
-- `relationship_tags` (JSON array: `["self"]`, `["friend"]`, etc.)
+- `voice_embedding` (BLOB)
+- `face_embeddings` (JSON array – prep for vision)
+- `relationship_tags` (JSON array: `self`, `friend`, `family`, `colleague`, `service_staff`, `unknown`)
 - `first_seen_at`
 - `last_seen_at`
 - `notes` (text)
+- `notes_vector_ids` (JSON array linking to memory vectors)
 - `created_at`
 
 For audio-only POC:
 
 - At least one `Person` with `relationship_tags=["self"]` and a linked `speaker_profile`.
 
-#### 3.2.8 semantic_locations
+#### 3.2.8 locations
 
 Fields:
 
@@ -387,7 +391,26 @@ Fields:
 
 Insert default `"unknown"` location.
 
-#### 3.2.9 memory_items
+#### 3.2.9 conversations
+
+Structured conversation roll-ups for transcripts + summaries.
+
+Fields:
+
+- `id`
+- `participants` (JSON array of `persons.id`)
+- `start_time`
+- `end_time`
+- `location_id` (FK → locations)
+- `topics` (JSON array of tags)
+- `raw_transcript`
+- `summary_text`
+- `summary_vector` (embedding)
+- `importance` (0–1)
+- `privacy` (`private`, `sensitive`, `shareable`)
+- `created_at`
+
+#### 3.2.10 memory_items
 
 LLM-proposed memories.
 
@@ -396,25 +419,39 @@ Fields:
 - `id`
 - `session_id` (FK → sessions)
 - `source_event_id` (FK → raw_events)
+- `source_conversation_id` (FK → conversations)
 - `timestamp`
 - `person_id` (FK → persons; who this memory is mainly about; often `self`)
+- `speaker_id` (FK → persons; explicit talker)
 - `speaker_profile_id` (FK → speaker_profiles; optional)
-- `location_id` (FK → semantic_locations)
+- `location_id` (FK → locations)
 - `text` (human-readable memory)
-- `topic_tags` (JSON array)
-- `modality_tags` (JSON array, but in POC always includes `"audio"`)
+- `topic_tags` (JSON array of domains)
+- `task_tags` (JSON array – shopping, todo, reminder, etc.)
+- `domain_tags` (JSON array – work, family, sports, glass_ar, etc.)
+- `modality_tags` (JSON array: `from_audio`, `from_video`, `from_location`, `from_manual_input`)
 - `importance` (0–1)
+- `urgency` (`low`, `medium`, `high`)
+- `deadline` (timestamp)
+- `repetition_count` (int)
+- `last_accessed_at`
+- `emotion`
+- `vector` (embedding)
 - `predicted_intent` (string: `"general_memory"`, `"shopping_item"`, `"todo"`, `"contact_info"`, etc.)
+- `privacy_level` (`private`, `sensitive`, `public`)
+- `shareable_to` (JSON array of entities)
 - `approval_status` (`pending`, `approved`, `rejected`, `flagged`)
 - `rejection_reason` (string)
 - `llm_suggested_issue` (string, from LLM quality self-assessment)
 - `confidence_asr`
 - `confidence_speaker`
+- `confidence_vision`
+- `confidence_face`
 - `confidence_llm`
 - `created_at`
 - `reviewed_at`
 
-#### 3.2.10 shopping_items
+#### 3.2.11 shopping_items
 
 Items the system thinks should go on a shopping list.
 
@@ -423,14 +460,15 @@ Fields:
 - `id`
 - `session_id` (FK → sessions)
 - `source_memory_id` (FK → memory_items)
+- `related_memory_id` (optional FK)
 - `name`
 - `quantity` (text)
-- `priority` (`low`, `normal`, `high`)
 - `status` (`pending`, `bought`, `dismissed`)
-- `approval_status` (`pending`, `approved`, `rejected`)
+- `source` (`vision_low_level`, `user_spoken`, `manual`, `system`)
 - `created_at`
+- `last_updated_at`
 
-#### 3.2.11 supervised_learning_events
+#### 3.2.12 supervised_learning_events
 
 Stores everything we may want to use later to improve models.
 
@@ -444,7 +482,7 @@ Fields:
 - `metadata` (JSON)
 - `reviewed` (boolean)
 
-#### 3.2.12 system_metrics (in `system_metrics.db`)
+#### 3.2.13 system_metrics (in `system_metrics.db`)
 
 Time-series metrics for monitoring.
 
@@ -457,6 +495,17 @@ Fields:
 - `metric_value`
 - `metadata` (JSON)
 
+### 3.3 Tag & Metric Library
+
+For clarity, the tags/metrics tied to the schema are:
+
+- **Modality tags**: `from_audio`, `from_video`, `from_location`, `from_manual_input`
+- **Task type tags**: `shopping`, `todo`, `reminder`, `contact_info`, `project_idea`, `research_topic`, `health`, `finance`, `travel`, `cooking`, `maintenance`
+- **Topic/domain tags**: `people`, `work`, `school`, `family`, `friends`, `sports`, `cs_ml`, `aerospace`, `startup`, `hardware`, `glass_ar`
+- **Relationship tags**: `self`, `spouse`, `family`, `close_friend`, `acquaintance`, `colleague`, `client`, `service_provider`, `stranger`
+- **Importance & urgency metrics**: importance (0–1), urgency (`low`, `medium`, `high`), `deadline`, `repetition_count`, `last_accessed_at`
+- **Confidence metrics**: `asr_confidence`, `vision_confidence`, `speaker_match_confidence`, `face_match_confidence`, `llm_decision_confidence`
+- **Privacy & visibility**: `privacy_level`, `shareable_to`
 ## 4. Versioning & Config Logging
 
 - **model_versions**

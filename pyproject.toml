@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ar-smart-assistant"
+version = "0.1.0"
+description = "Reference implementation of the AR SmartAssistant audio-only POC"
+readme = "README.md"
+authors = [{name = "OpenAI Contributor"}]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

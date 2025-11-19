@@ -21,3 +21,29 @@ debug UI for collecting, tagging, and approving memories.
 Once the pipeline is in place, follow the requirements documentation to
 implement manual audio sessions, persistent raw events, memory classification,
 per-memory approvals, and versioned replays.
+
+## Repository Layout (Reference Implementation)
+
+```
+ar_smart_assistant/
+  config.py                ← YAML loader with strict validation
+  database/                ← SQLite schema + repository helpers
+  perception/audio_pipeline.py ← Energy-based VAD + mock ASR speaker heuristics
+  llm/orchestrator.py      ← Deterministic classifier used for replay testing
+  memory/approvals.py      ← Per-memory approval workflow + supervision hooks
+  workflows/session_runner.py ← Coordinates the full pipeline in tests/CLI
+tests/                      ← Pytest coverage for configuration, DB, and sessions
+```
+
+## Development Quickstart
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+pytest
+```
+
+The prototype deliberately keeps inference lightweight—`perception.audio_pipeline`
+implements the YAML-configured VAD and synthesizes transcripts so the rest of
+the system (database, orchestration, approvals) can be exercised without a GPU.
