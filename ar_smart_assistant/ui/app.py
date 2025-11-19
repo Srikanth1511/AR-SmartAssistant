@@ -9,6 +9,7 @@ This is a developer-facing interface for:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import threading
 import time
@@ -21,6 +22,7 @@ from flask_cors import CORS
 from ..config import AppConfig, load_config
 from ..database.repository import BrainDatabase
 from ..perception.microphone import MicrophoneStream
+from ..perception.websocket_receiver import WebSocketAudioReceiver, WebSocketAudioStream
 from ..workflows.session_runner import SessionRunner
 
 
@@ -46,6 +48,9 @@ class DebugUI:
         self.current_session_id: int | None = None
         self.session_runner: SessionRunner | None = None
         self.microphone: MicrophoneStream | None = None
+        self.websocket_receiver: WebSocketAudioReceiver | None = None
+        self.websocket_stream: WebSocketAudioStream | None = None
+        self.websocket_thread: threading.Thread | None = None
         self.recording_thread: threading.Thread | None = None
         self.is_recording = False
 
@@ -53,8 +58,39 @@ class DebugUI:
         self.live_transcripts: list[dict[str, Any]] = []
         self.live_metrics: dict[str, Any] = {}
 
+        # Start WebSocket server if enabled
+        if self.config.websocket.enabled:
+            self._start_websocket_server()
+
         # Register routes
         self._register_routes()
+
+    def _start_websocket_server(self) -> None:
+        """Start WebSocket server in background thread for Glass audio."""
+        def run_server():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            self.websocket_receiver = WebSocketAudioReceiver(
+                host=self.config.websocket.host,
+                port=self.config.websocket.port,
+                sample_rate=self.config.audio.capture.sample_rate_hz,
+            )
+
+            self.websocket_stream = WebSocketAudioStream(self.websocket_receiver)
+
+            # Run WebSocket server
+            try:
+                loop.run_until_complete(self.websocket_receiver.start())
+            except Exception as e:
+                print(f"WebSocket server error: {e}")
+            finally:
+                loop.close()
+
+        self.websocket_thread = threading.Thread(target=run_server, daemon=True)
+        self.websocket_thread.start()
+
+        print(f"WebSocket server started on {self.config.websocket.host}:{self.config.websocket.port}")
 
     def _register_routes(self) -> None:
         """Register all Flask routes."""
@@ -71,6 +107,9 @@ class DebugUI:
                 "is_recording": self.is_recording,
                 "current_session_id": self.current_session_id,
                 "storage_root": str(self.config.storage.root),
+                "input_source": self.config.audio.input_source,
+                "websocket_enabled": self.config.websocket.enabled,
+                "websocket_connected": self.websocket_receiver.is_connected if self.websocket_receiver else False,
             })
 
         @self.app.route("/api/session/start", methods=["POST"])
@@ -83,27 +122,56 @@ class DebugUI:
                 # Initialize session runner
                 self.session_runner = SessionRunner(self.config, self.db)
 
-                # Start microphone
-                self.microphone = MicrophoneStream(self.config.audio.capture)
-                self.microphone.start()
+                # Start audio input based on config
+                input_source = self.config.audio.input_source
 
-                # Start recording in background thread
-                self.is_recording = True
-                self.live_transcripts.clear()
+                if input_source == "websocket":
+                    # Use WebSocket stream from Glass
+                    if not self.websocket_stream:
+                        return jsonify({"error": "WebSocket server not started"}), 500
 
-                def record():
-                    frames = list(self.microphone.get_frames())
-                    result = self.session_runner.run_session(frames)
-                    self.current_session_id = result.get("session_id")
-                    self.is_recording = False
+                    # Start recording in background thread
+                    self.is_recording = True
+                    self.live_transcripts.clear()
 
-                self.recording_thread = threading.Thread(target=record, daemon=True)
-                self.recording_thread.start()
+                    def record_websocket():
+                        frames = list(self.websocket_stream.get_frames())
+                        result = self.session_runner.run_session(frames)
+                        self.current_session_id = result.get("session_id")
+                        self.is_recording = False
 
-                return jsonify({
-                    "status": "recording_started",
-                    "message": "Recording session started"
-                })
+                    self.recording_thread = threading.Thread(target=record_websocket, daemon=True)
+                    self.recording_thread.start()
+
+                    return jsonify({
+                        "status": "recording_started",
+                        "message": f"Recording session started (WebSocket input)",
+                        "input_source": "websocket"
+                    })
+
+                else:  # Default to microphone
+                    # Start local microphone
+                    self.microphone = MicrophoneStream(self.config.audio.capture)
+                    self.microphone.start()
+
+                    # Start recording in background thread
+                    self.is_recording = True
+                    self.live_transcripts.clear()
+
+                    def record_microphone():
+                        frames = list(self.microphone.get_frames())
+                        result = self.session_runner.run_session(frames)
+                        self.current_session_id = result.get("session_id")
+                        self.is_recording = False
+
+                    self.recording_thread = threading.Thread(target=record_microphone, daemon=True)
+                    self.recording_thread.start()
+
+                    return jsonify({
+                        "status": "recording_started",
+                        "message": f"Recording session started (PC microphone)",
+                        "input_source": "microphone"
+                    })
 
             except Exception as e:
                 self.is_recording = False
@@ -116,8 +184,14 @@ class DebugUI:
                 return jsonify({"error": "Not currently recording"}), 400
 
             try:
+                # Stop microphone if it was used
                 if self.microphone:
                     self.microphone.stop()
+                    self.microphone = None
+
+                # Stop WebSocket stream if it was used
+                if self.websocket_stream:
+                    self.websocket_stream.stop()
 
                 # Wait for processing to complete
                 if self.recording_thread:
@@ -238,6 +312,8 @@ class DebugUI:
         print(f"Server: http://{host}:{port}")
         print(f"Storage: {self.config.storage.root}")
         print(f"Audio Input: {self.config.audio.input_source}")
+        if self.config.websocket.enabled:
+            print(f"WebSocket: ws://{self.config.websocket.host}:{self.config.websocket.port}")
         print(f"{'='*60}\n")
 
         # Auto-open browser if configured

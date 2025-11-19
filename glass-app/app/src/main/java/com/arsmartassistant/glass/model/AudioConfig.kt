@@ -8,7 +8,7 @@ data class AudioConfig(
     val encoding: AudioEncoding = AudioEncoding.PCM_16BIT,
     val channel: AudioChannel = AudioChannel.MONO,
     val bufferSizeBytes: Int = 3200, // 200ms chunks at 16kHz
-    val enableNoiseSuppress or: Boolean = true,
+    val enableNoiseSuppressor: Boolean = true,
     val enableAGC: Boolean = true,
     val enableAEC: Boolean = true
 )
