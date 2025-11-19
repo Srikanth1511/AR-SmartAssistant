@@ -16,4 +16,5 @@ pipeline, database, and UI decisions.
 - `debug-ui.md` — debug UI interactions for sessions, metrics, and approvals.
 - `roadmap.md` — phased delivery plan.
 
-Follow `CONTRIBUTIONS.md` when updating or extending these documents.
+Follow `CONTRIBUTING.md` for engineering rigor and use `CONTRIBUTIONS.md` for
+documentation workflow guidance when updating or extending these files.

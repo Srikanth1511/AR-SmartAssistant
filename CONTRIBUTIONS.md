@@ -1,7 +1,9 @@
 # Contributions Guide
 
 Thank you for helping document and implement the AR-SmartAssistant proof of concept (POC).
-To keep this repository easy to navigate, please follow these rules:
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full engineering
+requirements, then use this short guide to keep the documentation tree easy to
+navigate:
 
 1. **Documentation-first workflow**  
    - Update the appropriate markdown file inside `docs/` before adding new code.  

@@ -16,5 +16,12 @@ into the details that matter.
 | `debug-ui.md` | Flask debug UI expectations, including live metrics and review flow. |
 | `roadmap.md` | Phase-by-phase implementation plan. |
 
+Outside of the POC directory you will also find:
+
+| Path | Purpose |
+| --- | --- |
+| `docs/adr/` | Home for Architecture Decision Records referenced by `CONTRIBUTING.md`. |
+| `docs/templates/FAILURE_MODES_TEMPLATE.md` | Copy/paste helper for required failure-mode write-ups. |
+
 Need another POC or subsystem? Create a sibling folder inside `docs/` and mirror
 this pattern so contributors can find things easily.

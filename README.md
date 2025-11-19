@@ -7,10 +7,12 @@ debug UI for collecting, tagging, and approving memories.
 
 ## Getting Started
 
-1. Review [`CONTRIBUTIONS.md`](CONTRIBUTIONS.md) to understand the repository
-   layout and documentation rules.
-2. Read the documentation index in [`docs/README.md`](docs/README.md).
-3. Dive into the audio-only POC requirements inside
+1. Read the engineering constraints in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+2. Skim the documentation index in [`docs/README.md`](docs/README.md).
+3. Use the documentation workflow tips in
+   [`CONTRIBUTIONS.md`](CONTRIBUTIONS.md) if you are extending the Markdown
+   sources.
+4. Dive into the audio-only POC requirements inside
    [`docs/poc-audio-only/`](docs/poc-audio-only/), starting with
    [`requirements.md`](docs/poc-audio-only/requirements.md).
 
