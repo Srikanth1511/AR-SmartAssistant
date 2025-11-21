@@ -1,5 +1,5 @@
 # AR-SmartAssistant
-
+(WIP- not tested)
 Audio-first remembrance agent inspired by the classic Remembrance Agent concept.
 The current focus is a manual-session, audio-only proof of concept that runs all
 inference locally (ASR, speaker ID, LLM, embeddings) and exposes a developer
